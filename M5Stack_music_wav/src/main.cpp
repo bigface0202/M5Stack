@@ -37,6 +37,8 @@ void setup()
   Serial.begin(9600);
 
   /*Audio setup*/
+  /*Please move music file(se_maoudamashii_battle_gun05.wav) into SD.
+  This file put on the music folder*/
   file_shoot = new AudioFileSourceSD("/se_maoudamashii_battle_gun05.wav");
   //file = new AudioFileSourceSD("/pno-cs.wav");
   out = new AudioOutputI2S(0, 1); // Output to builtInDAC
