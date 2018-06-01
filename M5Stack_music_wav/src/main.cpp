@@ -37,12 +37,13 @@ decode_results results;
 //Function
 void IR_Receptor();
 void IR_Transmitter();
+void Game_over();
 
 void IR_Receptor() {
   if (irrecv.decode(&results)) {
     if (results.decode_type == SONY) {
       lifeCount++;
-      M5.Lcd.fillCircle(180-(25*lifeCount),55,10,BLACK);
+      M5.Lcd.fillCircle(205-(25*lifeCount),55,10,BLACK); //Remove a life
     }
     irrecv.resume(); // Receive the next value
   }
@@ -76,6 +77,17 @@ void IR_Transmitter() {
     M5.Lcd.print(shootCount);
   }
 }
+void Game_over(){
+  if(lifeCount > 4){
+    M5.Lcd.fillScreen(BLUE);
+    M5.Lcd.setTextFont(4);
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setCursor(70, 120);
+    M5.Lcd.print("GAME OVER");
+    delay(100000);
+    exit(0);
+  }
+}
 
 void setup()
 {
@@ -97,7 +109,7 @@ void setup()
   pinMode(switch_PIN, INPUT);
   M5.Lcd.setTextFont(4);
   M5.Lcd.setTextColor(WHITE);
-  M5.Lcd.setCursor(160, 120);
+  M5.Lcd.setCursor(120, 120);
   M5.Lcd.print("START!!");
   delay(2000);
   M5.Lcd.fillScreen(BLACK);
@@ -134,6 +146,9 @@ void loop()
 
   /*IR Transmitter*/
   IR_Transmitter();
+
+  /*Game over*/
+  Game_over();
 
   /*??*/
   if(wav->isRunning()){
