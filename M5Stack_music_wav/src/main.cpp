@@ -10,7 +10,7 @@ https://github.com/me-no-dev/arduino-esp32fs-plugin
 #include <Arduino.h>
 #include <M5Stack.h>
 #include <WiFi.h>
-#include <IRremote.h>
+#include "IRremote.h"
 #include "AudioFileSourceSD.h"
 #include "AudioGeneratorWAV.h"
 #include "AudioOutputI2S.h"
