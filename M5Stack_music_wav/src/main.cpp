@@ -156,12 +156,13 @@ void loop()
       wav->stop();
     }
   }
-
+  
+  /*test code*/
   if (M5.BtnB.wasPressed()){
     /*Music test*/
-    //file_shoot->close();
-    //file_shoot = new AudioFileSourceSD("/se_maoudamashii_battle_gun05.wav");
-    //wav->begin(file_shoot, out);
+    file_shoot->close();
+    file_shoot = new AudioFileSourceSD("/se_maoudamashii_battle_gun05.wav");
+    wav->begin(file_shoot, out);
     dacWrite(25, 0);
   }else if (M5.BtnC.wasPressed()){
     /*Showing like the heart beat*/
