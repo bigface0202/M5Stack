@@ -70,7 +70,7 @@ void IR_Transmitter() {
       file_shoot = new AudioFileSourceSD("/se_maoudamashii_battle_gun05.wav");
       wav->begin(file_shoot, out);
       dacWrite(25, 0);
-
+      wav->stop();
       //Showing the SHOOT!!!!
       M5.Lcd.setTextColor(RED); 
       M5.Lcd.setCursor(0, 220);
@@ -157,7 +157,7 @@ void loop()
 {
   /*LCD setup*/
   M5.Lcd.setTextFont(4);
-  M5.Lcd.drawRect(120,100,200,140,WHITE);
+  M5.Lcd.drawRect(60,40,140,35,WHITE);
 
   /*IR Receptor*/
   IR_Receptor();
@@ -167,13 +167,15 @@ void loop()
 
   /*Game over*/
   Game_over();
-
+  
   /*??*/
   if(wav->isRunning()){
     if(!wav->loop()){
       wav->stop();
     }
   }
+
+  dacWrite(25, 0);
 
   /*Test code*/
   if (M5.BtnB.wasPressed()){
@@ -182,6 +184,7 @@ void loop()
     file_shoot = new AudioFileSourceSD("/se_maoudamashii_battle_gun05.wav");
     wav->begin(file_shoot, out);
     dacWrite(25, 0);
+    
   }else if (M5.BtnC.wasPressed()){
     /*Showing like the heart beat*/
     while(heartCount < 3){
