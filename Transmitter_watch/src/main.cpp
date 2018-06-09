@@ -43,7 +43,6 @@ void Game_over();
 void IR_Receptor() {
   if (irrecv.decode(&results)) {
     if (results.decode_type == SONY) {
-      lifeCount++;
       M5.Lcd.setCursor(0, 220);
       M5.Lcd.print("HIT!!!");
       delay(1000);
@@ -51,7 +50,8 @@ void IR_Receptor() {
       M5.Lcd.setCursor(0, 220);
       M5.Lcd.print("HIT!!!");
       M5.Lcd.setTextColor(WHITE);
-      M5.Lcd.fillCircle(205-(25*lifeCount),55,10,BLACK); //Remove a life
+      M5.Lcd.fillRect(20, 30+(lifeCount * 35), 60, 25, BLACK); //Remove a life
+      lifeCount++;
     }
     irrecv.resume(); // Receive the next value
   }
@@ -81,6 +81,9 @@ void IR_Transmitter() {
       M5.Lcd.setCursor(80, 10);
       M5.Lcd.print(shootCount);
       shootCount = shootCount + 1;
+      if (shootCount % 5 == 0 ){
+        M5.Lcd.fillRect(130, 30+((shootCount / 5 - 1) * 35), 60, 25, BLACK); //Remove a life
+      }
       M5.Lcd.setTextColor(WHITE);
       M5.Lcd.setCursor(80, 10);
       M5.Lcd.print(shootCount);
@@ -136,28 +139,47 @@ void setup()
   irrecv.enableIRIn(); // Start the receiver
   
   /*Show your live*/
-  M5.Lcd.setCursor(0, 45);
-  M5.Lcd.print("LIFE:");
-  M5.Lcd.setCursor(80, 45);
-  //M5.Lcd.print(lifeCount);
-  M5.Lcd.fillCircle(80,55,10,RED);
-  M5.Lcd.fillCircle(105,55,10,RED);
-  M5.Lcd.fillCircle(130,55,10,RED);
-  M5.Lcd.fillCircle(155,55,10,RED);
-  M5.Lcd.fillCircle(180,55,10,RED);
+  M5.Lcd.fillRect(20,30,60,25,RED);
+  M5.Lcd.fillRect(20,65,60,25,RED);
+  M5.Lcd.fillRect(20,100,60,25,RED);
+  M5.Lcd.fillRect(20,135,60,25,RED);
+  M5.Lcd.fillRect(20,170,60,25,RED);
 
-  /*Show your shots*/
-  M5.Lcd.setCursor(0, 10);
-  M5.Lcd.print("SHOT:");
-  M5.Lcd.setCursor(80, 10);
-  M5.Lcd.print(shootCount);
+  /*Show your bullets*/
+  M5.Lcd.fillRect(130,30,60,25,GREEN);
+  M5.Lcd.fillRect(130,65,60,25,GREEN);
+  M5.Lcd.fillRect(130,100,60,25,GREEN);
+  M5.Lcd.fillRect(130,135,60,25,GREEN);
+  M5.Lcd.fillRect(130,170,60,25,GREEN);
+
+  /*Show your charge*/
+  M5.Lcd.fillRect(240,30,60,25,YELLOW);
+  M5.Lcd.fillRect(240,65,60,25,YELLOW);
+  M5.Lcd.fillRect(240,100,60,25,YELLOW);
+  M5.Lcd.fillRect(240,135,60,25,YELLOW);
+  M5.Lcd.fillRect(240,170,60,25,YELLOW);
 }
 
 void loop()
 {
   /*LCD setup*/
   M5.Lcd.setTextFont(4);
-  M5.Lcd.drawRect(60,40,140,35,WHITE);
+  M5.Lcd.drawRect(10,20,80,185,WHITE);
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setCursor(25, 215);
+  M5.Lcd.print("LIFE");
+
+  M5.Lcd.setTextFont(4);
+  M5.Lcd.drawRect(120,20,80,185,WHITE);
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setCursor(105, 215);
+  M5.Lcd.print("BULLET");
+
+  M5.Lcd.setTextFont(4);
+  M5.Lcd.drawRect(230,20,80,185,WHITE);
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setCursor(225, 215);
+  M5.Lcd.print("CHARGE");
 
   /*IR Receptor*/
   IR_Receptor();
