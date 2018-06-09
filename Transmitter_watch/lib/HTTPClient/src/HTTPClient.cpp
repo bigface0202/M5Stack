@@ -5,8 +5,8 @@
  *
  * Copyright (c) 2015 Markus Sattler. All rights reserved.
  * This file is part of the HTTPClient for Arduino.
- * Port to ESP32 by Evandro Luis Copercini (2017), 
- * changed fingerprints to CA verification. 												 
+ * Port to ESP32 by Evandro Luis Copercini (2017),
+ * changed fingerprints to CA verification.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -25,7 +25,7 @@
  */
 
 #include <Arduino.h>
-#include <esp32-hal-log.h>  
+#include <esp32-hal-log.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <StreamString.h>
@@ -834,13 +834,13 @@ bool HTTPClient::connect(void)
     }
 
     _tcp = _transportTraits->create();
-	
+
 
     if (!_transportTraits->verify(*_tcp, _host.c_str())) {
         log_d("transport level verify failed");
         _tcp->stop();
         return false;
-    }	
+    }
 
     if(!_tcp->connect(_host.c_str(), _port)) {
         log_d("failed connect to %s:%u", _host.c_str(), _port);

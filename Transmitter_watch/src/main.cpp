@@ -1,21 +1,23 @@
 #pragma mark - Depend ESP8266Audio and ESP8266_Spiram libraries
-/* 
+/*
 cd ~/Arduino/libraries
 git clone https://github.com/earlephilhower/ESP8266Audio
 git clone https://github.com/Gianbacchio/ESP8266_Spiram
 Use the "Tools->ESP32 Sketch Data Upload" menu to write the MP3 to SPIFFS
-Then upload the sketch normally.  
+Then upload the sketch normally.
 https://github.com/me-no-dev/arduino-esp32fs-plugin
 */
 #include <Arduino.h>
 #include <M5Stack.h>
+#include <IRremote.h>
+#include <HTTPClient.h>
+#include <SPIFFS.h>
+#include <AudioFileSourceSD.h>
+#include <AudioGeneratorWAV.h>
+#include <AudioOutputI2S.h>
 #include <WiFi.h>
-#include "IRremote.h"
-#include "AudioFileSourceSD.h"
-#include "AudioGeneratorWAV.h"
-#include "AudioOutputI2S.h"
-#include "HTTPClient.h"
-#include "SPIFFS.h"
+#include <WiFiMulti.h>
+
 /*Pin*/
 int switch_PIN = 2; //SHOT switch
 int IR_receptorPin = 17;//Pin used to read IR values
@@ -26,6 +28,7 @@ int shootCount = 0;
 int lifeCount = 0;
 int heartCount = 0;
 int i = 0;
+int j = 10;
 
 AudioGeneratorWAV *wav;
 AudioFileSourceSD *file_shoot;
@@ -34,15 +37,27 @@ AudioOutputI2S *out;
 IRsend irsend; //Pin number 3 is IR
 IRrecv irrecv(IR_receptorPin);//Create an object
 decode_results results;
+// Wi-Fi objects
+WiFiMulti WiFiMulti;
+WiFiClient client_M5Stack;
 
 //Function
+void watch_functions();
 void IR_Receptor();
 void IR_Transmitter();
 void Game_over();
+void wifi_connection_esp();//function for Wi-Fi
+
+// This port and IP are the ones that we will use to connect to ESP32
+const uint16_t port = 80;
+const char * host = "10.31.1.35"; // ip or dns
+int stack_ip;
+
 
 void IR_Receptor() {
   if (irrecv.decode(&results)) {
     if (results.decode_type == SONY) {
+      lifeCount++;
       M5.Lcd.setCursor(0, 220);
       M5.Lcd.print("HIT!!!");
       delay(1000);
@@ -51,7 +66,8 @@ void IR_Receptor() {
       M5.Lcd.print("HIT!!!");
       M5.Lcd.setTextColor(WHITE);
       M5.Lcd.fillRect(20, 30+(lifeCount * 35), 60, 25, BLACK); //Remove a life
-      lifeCount++;
+      // send one character H (Hit) every time the players was shooted
+      client_M5Stack.print("HIT");
     }
     irrecv.resume(); // Receive the next value
   }
@@ -70,23 +86,19 @@ void IR_Transmitter() {
       file_shoot = new AudioFileSourceSD("/se_maoudamashii_battle_gun05.wav");
       wav->begin(file_shoot, out);
       dacWrite(25, 0);
-      wav->stop();
+
       //Showing the SHOOT!!!!
-      M5.Lcd.setTextColor(RED); 
+      M5.Lcd.setTextColor(RED);
       M5.Lcd.setCursor(0, 220);
       M5.Lcd.print("SHOOT!!!");
 
-      //Overwrite the shootCount
-      M5.Lcd.setTextColor(BLACK);
-      M5.Lcd.setCursor(80, 10);
-      M5.Lcd.print(shootCount);
       shootCount = shootCount + 1;
+
+      client_M5Stack.println("SHOT");
+
       if (shootCount % 5 == 0 ){
         M5.Lcd.fillRect(130, 30+((shootCount / 5 - 1) * 35), 60, 25, BLACK); //Remove a life
       }
-      M5.Lcd.setTextColor(WHITE);
-      M5.Lcd.setCursor(80, 10);
-      M5.Lcd.print(shootCount);
 
       //Delete the SHOOT!!!!
       delay(100);
@@ -110,74 +122,27 @@ void Game_over(){
   }
 }
 
-void setup()
-{
-  M5.begin();
-  WiFi.mode(WIFI_OFF); 
-  delay(500);
-  Serial.begin(9600);
-
-  /*Audio setup*/
-  /*Please move music file(se_maoudamashii_battle_gun05.wav) into SD.
-  This file put on the music folder*/
-  file_shoot = new AudioFileSourceSD("/se_maoudamashii_battle_gun05.wav");
-  out = new AudioOutputI2S(0, 1); // Output to builtInDAC
-  out->SetOutputModeMono(true);
-  wav = new AudioGeneratorWAV();
-  //wav->begin(file, out);
-
-  /*Game setup*/
-  pinMode(switch_PIN, INPUT);
-  M5.Lcd.setTextFont(4);
-  M5.Lcd.setTextColor(WHITE);
-  M5.Lcd.setCursor(120, 120);
-  M5.Lcd.print("START!!");
-  delay(2000);
-  M5.Lcd.fillScreen(BLACK);
-
-  /*IRrecev setup*/
-  irrecv.enableIRIn(); // Start the receiver
-  
-  /*Show your live*/
-  M5.Lcd.fillRect(20,30,60,25,RED);
-  M5.Lcd.fillRect(20,65,60,25,RED);
-  M5.Lcd.fillRect(20,100,60,25,RED);
-  M5.Lcd.fillRect(20,135,60,25,RED);
-  M5.Lcd.fillRect(20,170,60,25,RED);
-
-  /*Show your bullets*/
-  M5.Lcd.fillRect(130,30,60,25,GREEN);
-  M5.Lcd.fillRect(130,65,60,25,GREEN);
-  M5.Lcd.fillRect(130,100,60,25,GREEN);
-  M5.Lcd.fillRect(130,135,60,25,GREEN);
-  M5.Lcd.fillRect(130,170,60,25,GREEN);
-
-  /*Show your charge*/
-  M5.Lcd.fillRect(240,30,60,25,YELLOW);
-  M5.Lcd.fillRect(240,65,60,25,YELLOW);
-  M5.Lcd.fillRect(240,100,60,25,YELLOW);
-  M5.Lcd.fillRect(240,135,60,25,YELLOW);
-  M5.Lcd.fillRect(240,170,60,25,YELLOW);
-}
-
-void loop()
-{
+void watch_functions() {
   /*LCD setup*/
   M5.Lcd.setTextFont(4);
-  M5.Lcd.drawRect(10,20,80,185,WHITE);
-  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setCursor(0, 0);
+  M5.Lcd.print("PLAYER 1");
+  M5.Lcd.setCursor(0, 30);
+  M5.Lcd.print("IP :");
+  M5.Lcd.setCursor(40, 30);
+  M5.Lcd.print(host);
+
+ M5.Lcd.drawRect(10,60,80,140,WHITE);
   M5.Lcd.setCursor(25, 215);
   M5.Lcd.print("LIFE");
 
   M5.Lcd.setTextFont(4);
-  M5.Lcd.drawRect(120,20,80,185,WHITE);
-  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.drawRect(120,60,80,140,WHITE);
   M5.Lcd.setCursor(105, 215);
   M5.Lcd.print("BULLET");
 
   M5.Lcd.setTextFont(4);
-  M5.Lcd.drawRect(230,20,80,185,WHITE);
-  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.drawRect(230,60,80,140,WHITE);
   M5.Lcd.setCursor(225, 215);
   M5.Lcd.print("CHARGE");
 
@@ -189,7 +154,7 @@ void loop()
 
   /*Game over*/
   Game_over();
-  
+
   /*??*/
   if(wav->isRunning()){
     if(!wav->loop()){
@@ -197,38 +162,95 @@ void loop()
     }
   }
 
-  dacWrite(25, 0);
+ 
+}
 
-  /*Test code*/
-  if (M5.BtnB.wasPressed()){
-    /*Music test*/
-    file_shoot->close();
-    file_shoot = new AudioFileSourceSD("/se_maoudamashii_battle_gun05.wav");
-    wav->begin(file_shoot, out);
-    dacWrite(25, 0);
-    
-  }else if (M5.BtnC.wasPressed()){
-    /*Showing like the heart beat*/
-    while(heartCount < 3){
-      M5.Lcd.drawLine(140,170,170,170,RED);
-      M5.Lcd.drawLine(170,170,200,110,RED);
-      M5.Lcd.drawLine(200,110,230,220,RED);
-      M5.Lcd.drawLine(230,220,260,170,RED);
-      M5.Lcd.drawLine(260,170,300,170,RED);
-      M5.Lcd.fillRect(125+(i*10),105,200-(i*10),130,0x7bef);
-      delay(100);
-      i++;
-      if(i > 20) {
-        i = 0;
-        M5.Lcd.drawLine(140,170,170,170,0x7bef);
-        M5.Lcd.drawLine(170,170,200,110,0x7bef);
-        M5.Lcd.drawLine(200,110,230,220,0x7bef);
-        M5.Lcd.drawLine(230,220,260,170,0x7bef);
-        M5.Lcd.drawLine(260,170,300,170,0x7bef);
-        heartCount++;
-      }
-    }
-    heartCount = 0;
+void setup() {
+  Serial.begin(115200);
+  M5.begin();
+
+  /*LCD setup*/
+  M5.Lcd.setTextFont(2);
+  M5.Lcd.setTextColor(WHITE);
+  M5.Lcd.setCursor(0, 0);
+  M5.Lcd.print("Wait for WiFi... ");
+  
+  // WiFi setup
+  // We start by connecting to a WiFi network
+  WiFiMulti.addAP("Human-A1-721-2G_EXT", "bsys12bsys34");
+  //Start the connection of the client and wait until connect to the lan
+  while(WiFiMulti.run() != WL_CONNECTED) {
+           M5.Lcd.setCursor(i, j);
+           M5.Lcd.print(".");
+           delay(1000);
+           i = i + 5;
   }
+  M5.Lcd.fillScreen(BLACK);
+  M5.Lcd.setCursor(0, 25);
+  M5.Lcd.print("WiFi connected");
+  //print the IP assigned to the device
+  M5.Lcd.setCursor(0, 40);
+  M5.Lcd.print("IP address: ");
+  M5.Lcd.setCursor(0, 55);
+  M5.Lcd.print(WiFi.localIP());
+  delay(500);
+  M5.Lcd.setCursor(0, 70);
+  M5.Lcd.print("connecting to ");
+  M5.Lcd.setCursor(0, 85);
+  M5.Lcd.print(host);
+  // This will comprobe if Stack is connected to the ESP-Server
+  
+  if (!client_M5Stack.connect(host, port)) {
+          M5.Lcd.setCursor(0, 60);
+          M5.Lcd.print("connection failed");
+          M5.Lcd.setCursor(0, 60);
+          M5.Lcd.print("wait 5 sec...");
+          delay(2000);
+          return;
+  }
+  
+  /*Audio setup*/
+  /*Please move music file(se_maoudamashii_battle_gun05.wav) into SD.
+  This file put on the music folder*/
+  file_shoot = new AudioFileSourceSD("/se_maoudamashii_battle_gun05.wav");
+  out = new AudioOutputI2S(0, 1); // Output to builtInDAC
+  out->SetOutputModeMono(true);
+  wav = new AudioGeneratorWAV();
+  //wav->begin(file, out);
+
+  /*Game setup*/
+  pinMode(switch_PIN, INPUT);
+  delay(2000);
+  //M5.Lcd.print("START!!");
+  //delay(2000);
+  M5.Lcd.fillScreen(BLACK);
+
+  /*IRrecev setup*/
+  irrecv.enableIRIn(); // Start the receiver
+
+  /*Show your live*/
+  M5.Lcd.fillRect(20,70,60,20,RED);
+  M5.Lcd.fillRect(20,95,60,20,RED);
+  M5.Lcd.fillRect(20,120,60,20,RED);
+  M5.Lcd.fillRect(20,145,60,20,RED);
+  M5.Lcd.fillRect(20,170,60,20,RED);
+
+  /*Show your bullets*/
+  M5.Lcd.fillRect(130,70,60,20,YELLOW);
+  M5.Lcd.fillRect(130,95,60,20,YELLOW);
+  M5.Lcd.fillRect(130,120,60,20,YELLOW);
+  M5.Lcd.fillRect(130,145,60,20,YELLOW);
+  M5.Lcd.fillRect(130,170,60,20,YELLOW);
+
+  /*Show your charge*/
+  M5.Lcd.fillRect(240,70,60,20,GREEN);
+  M5.Lcd.fillRect(240,95,60,20,GREEN);
+  M5.Lcd.fillRect(240,120,60,20,GREEN);
+  M5.Lcd.fillRect(240,145,60,20,GREEN);
+  M5.Lcd.fillRect(240,170,60,20,GREEN);
+}
+
+void loop() {
+  watch_functions();
   M5.update();
 }
