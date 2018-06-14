@@ -138,12 +138,12 @@ void watch_functions() {
 
   M5.Lcd.setTextFont(4);
   M5.Lcd.drawRect(120,60,80,140,WHITE);
-  M5.Lcd.setCursor(105, 215);
+  M5.Lcd.setCursor(115, 215);
   M5.Lcd.print("BULLET");
 
   M5.Lcd.setTextFont(4);
   M5.Lcd.drawRect(230,60,80,140,WHITE);
-  M5.Lcd.setCursor(225, 215);
+  M5.Lcd.setCursor(215, 215);
   M5.Lcd.print("CHARGE");
 
   /*IR Receptor*/
@@ -236,18 +236,18 @@ void setup() {
   M5.Lcd.fillRect(20,170,60,20,RED);
 
   /*Show your bullets*/
-  M5.Lcd.fillRect(130,70,60,20,YELLOW);
-  M5.Lcd.fillRect(130,95,60,20,YELLOW);
-  M5.Lcd.fillRect(130,120,60,20,YELLOW);
-  M5.Lcd.fillRect(130,145,60,20,YELLOW);
-  M5.Lcd.fillRect(130,170,60,20,YELLOW);
+  M5.Lcd.fillRect(130,70,60,20,GREEN);
+  M5.Lcd.fillRect(130,95,60,20,GREEN);
+  M5.Lcd.fillRect(130,120,60,20,GREEN);
+  M5.Lcd.fillRect(130,145,60,20,GREEN);
+  M5.Lcd.fillRect(130,170,60,20,GREEN);
 
   /*Show your charge*/
-  M5.Lcd.fillRect(240,70,60,20,GREEN);
-  M5.Lcd.fillRect(240,95,60,20,GREEN);
-  M5.Lcd.fillRect(240,120,60,20,GREEN);
-  M5.Lcd.fillRect(240,145,60,20,GREEN);
-  M5.Lcd.fillRect(240,170,60,20,GREEN);
+  M5.Lcd.fillRect(240,70,60,20,YELLOW);
+  M5.Lcd.fillRect(240,95,60,20,YELLOW);
+  M5.Lcd.fillRect(240,120,60,20,YELLOW);
+  M5.Lcd.fillRect(240,145,60,20,YELLOW);
+  M5.Lcd.fillRect(240,170,60,20,YELLOW);
 }
 
 void loop() {
