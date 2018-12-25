@@ -5,7 +5,6 @@
 
 #define LCD
 
-
 IMU *imu;
 //BluetoothSerial SerialBT;
 uint32_t last_displayed;
@@ -47,10 +46,12 @@ void setup()
         M5.Lcd.setTextSize(2);
         M5.Lcd.print("Not find the SD card!!!");
         M5.Lcd.setTextSize(1);
-        while (1);
+        while (1)
+            ;
     }
     Serial.println("card initialized.");
 
+    //Initialize the datalog.txt
     File dataFile = SD.open("/datalog.txt", FILE_WRITE);
     if (dataFile)
     {
@@ -69,17 +70,16 @@ void loop()
 {
     int Timer = millis();
     static char measurementTime[12];
+
+    //Measure the time by program starting
     Timer = Timer - Timer_init;
     Minute = Timer / 60000;
     Second = Timer / 1000 - Minute * 60;
     Milisec = Timer - 1000 * Second - 60000 * Minute;
-//    Serial.print(Minute);
-//    Serial.print(":");
-//    Serial.print(Second);
-//    Serial.print(":");
-//    Serial.println(Timer - 1000 * Second - 60000 * Minute);
+
+    // Substitute the time for array of measurementTime
+    sprintf(measurementTime, "%02d:%02d:%03d", Minute, Second, Milisec);
     Serial.println(measurementTime);
-    sprintf(measurementTime, "%02d:%02d:%03d",Minute,Second,Milisec);
 
     float ax, ay, az, gx, gy, gz, mx, my, mz;
     float yaw, pitch, roll;
@@ -99,12 +99,14 @@ void loop()
     }
     // open the file. note that only one file can be open at a time,
     // so you have to close this one before opening another.
+    // FILE_APPEND means that adding the data in new line.
+    // FILE_WRITE means that overwriting the data in just top line.
     File dataFile = SD.open("/datalog.txt", FILE_APPEND);
 
-      Serial.printf(
-        "axyzgxyzypr\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%d\t\r\n",
-        ax, ay, az, gx, gy, gz, yaw, pitch, roll,
-        btnAPressed);
+    // Serial.printf(
+    //     "axyzgxyzypr\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%d\t\r\n",
+    //     ax, ay, az, gx, gy, gz, yaw, pitch, roll,
+    //     btnAPressed);
 
     // if the file is available, write to it:
     if (dataFile)
