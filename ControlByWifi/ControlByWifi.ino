@@ -1,22 +1,32 @@
-#include <WiFi.h>
 #include <ESPmDNS.h>
 #include <NTPClient.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <WebServer.h>
 #include <M5Stack.h>
+#include "IMU.h"
+#include "log_util.h"
 
 //Test
 int ledPin = 2;
+int measurementFlag = 0;
 
 // Process mode
-#define MODE_CURRENT 1 // Response current values
-#define MODE_RECORDS 2 // Send records from SD limited the range of record position
-#define MODE_DATE 3    // Send records from SD limited the range of date or date-time
-#define MODE_MAINTE 11 // Create maintenance screen
+#define MODE_ADJUST_PARAM 1   // Response current values
+#define MODE_DO_MEASUREMENT 2 // Send records from SD limited the range of record position
+#define MODE_DATE 3           // Send records from SD limited the range of date or date-time
+#define MODE_MAINTE 11        // Create maintenance screen
+
+#define LCD
+
+IMU *imu;
+uint32_t last_displayed;
+
+int Minute = 0, Second = 0, Milisec = 0;
+int Timer_init;
 
 // WiFi connection
-char ssid[33] = {"Human-A1-711"};
+char ssid[33] = {"BSYS-A1-512-HUMAN"};
 char password[64] = {"bsys12bsys34"};
 
 // WiFi response control
@@ -38,9 +48,23 @@ const String strTitle = "No., Temp(C), Press(hPa), Hum(%), Illum(lx), Date Time"
  *****************************************************************************/
 void setup()
 {
-    Serial.begin(115200);
-    //Start M5Stack OS
     M5.begin();
+    Wire.begin();
+    Serial.begin(115200);
+    displayWelcome();
+    delay(1000);
+
+    imu = new IMU();
+
+    displayAdress("MPU9250", imu->getAddress(), 0x71);
+    delay(1000);
+    displayAdress("AK8963", imu->getAK8963Adress(), 0x48);
+    delay(1000);
+    displayAccelGyroBias(imu->getAccelBias(), imu->getGyroBias());
+    delay(1000);
+    displayMagCalibration(imu->getMagCalibration());
+    delay(1000);
+
     M5.Lcd.fillScreen(BLACK);
     M5.Lcd.setTextColor(WHITE, BLACK); // Set pixel color; 1 on the monochrome screen
     M5.Lcd.setTextSize(2);
@@ -52,25 +76,36 @@ void setup()
     Wire.begin(21, 22); //Define(SDA, SCL)
     delay(50);
 
-    //    displayWelcome();
-    //    delay(1000);
-    //
-    //    displayAdress("MPU9250", imu->getAddress(), 0x71);
-    //    delay(1000);
-    //    displayAdress("AK8963", imu->getAK8963Adress(), 0x48);
-    //    delay(1000);
-    //    displayAccelGyroBias(imu->getAccelBias(), imu->getGyroBias());
-    //    delay(1000);
-    //    displayMagCalibration(imu->getMagCalibration());
-    //    delay(1000);
+    //Prepare SD card.
+    if (!SD.begin())
+    {
+        // Fill screen black
+        M5.Lcd.fillScreen(BLACK);
+        Serial.println("Card failed, or not present");
+        // don't do anything more:
+        M5.Lcd.setCursor(0, 0);
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.print("Not find the SD card!!!");
+        M5.Lcd.setTextSize(1);
+        while (1)
+            ;
+    }
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.print("SD CARD OK!!");
 
     // Prepare WiFi system.
+    int dotPosition = 0;
     WiFi.disconnect(true);
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED)
     {
         delay(500);
         Serial.print(".");
+        M5.Lcd.setCursor(0, 25);
+        M5.Lcd.print("WiFi conecting");
+        M5.Lcd.setCursor(dotPosition, 50);
+        M5.Lcd.print(".");
+        dotPosition += 5;
     }
     server.begin();
     Serial.print("\nServer started!  IP: ");
@@ -81,6 +116,20 @@ void setup()
     M5.Lcd.print("IP: ");
     M5.Lcd.setCursor(40, 60);
     M5.Lcd.print(WiFi.localIP());
+    delay(1000);
+
+    //Initialize the datalog.txt
+    File dataFile = SD.open("/datalog.txt", FILE_WRITE);
+    if (dataFile)
+    {
+        dataFile.println("Time,Ax,Ay,Az,Gx,Gy,Gz,yaw,pitch,roll,btnA");
+        dataFile.close();
+    }
+    // if the file isn't open, pop up an error:
+    else
+    {
+        Serial.println("error opening datalog.txt");
+    }
 
     // Set local DNS
     MDNS.begin("airmon");
@@ -91,11 +140,79 @@ void setup()
 
     pinMode(ledPin, OUTPUT);
     digitalWrite(ledPin, HIGH);
+    M5.Lcd.fillScreen(BLACK);
+    Timer_init = millis();
 }
 
 void loop()
 {
+    int Timer = millis();
+    static char measurementTime[12];
+
+    M5.Lcd.setTextColor(GREEN, BLACK); // Set pixel color; 1 on the monochrome screen
+    M5.Lcd.setTextSize(1);
+
+    //Measure the time by program starting
+    Timer = Timer - Timer_init;
+    Minute = Timer / 60000;
+    Second = Timer / 1000 - Minute * 60;
+    Milisec = Timer - 1000 * Second - 60000 * Minute;
+
+    // Substitute the time for array of measurementTime
+    sprintf(measurementTime, "%02d:%02d:%03d", Minute, Second, Milisec);
+    // Serial.println(measurementTime);
+
+    float ax, ay, az, gx, gy, gz, mx, my, mz;
+    float yaw, pitch, roll;
+    imu->read(&ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz, &yaw, &pitch, &roll);
+    
+    auto frequency = imu->getFrequency();
+    displayIMU(ax, ay, az, gx, gy, gz, mx, my, mz, yaw, pitch, roll, frequency);
+
+    uint8_t btnAPressed = 0;
+    if (M5.BtnA.wasPressed())
+    {
+        btnAPressed = 1;
+    }
+
+    //If measurementFlag is 1, measurement is started.
+    if (measurementFlag == 1)
+    {
+        File dataFile = SD.open("/datalog.txt", FILE_APPEND);
+        if (dataFile)
+        {
+            dataFile.print(measurementTime);
+            dataFile.print(",");
+            dataFile.print(ax);
+            dataFile.print(",");
+            dataFile.print(ay);
+            dataFile.print(",");
+            dataFile.print(az);
+            dataFile.print(",");
+            dataFile.print(gx);
+            dataFile.print(",");
+            dataFile.print(gy);
+            dataFile.print(",");
+            dataFile.print(gz);
+            dataFile.print(",");
+            dataFile.print(yaw);
+            dataFile.print(",");
+            dataFile.print(pitch);
+            dataFile.print(",");
+            dataFile.print(roll);
+            dataFile.print(",");
+            dataFile.println(btnAPressed);
+            dataFile.close();
+        }
+        // if the file isn't open, pop up an error:
+        else
+        {
+            Serial.println("error opening datalog.txt");
+        }
+    }
+
     server.handleClient();
+    M5.update();
 }
 
 /************************< Server callback functions >************************/
@@ -156,27 +273,19 @@ void procAnalyzeCommand()
     }
     Serial.print("cmd: ");
     Serial.println(cmd);
-
-    M5.Lcd.fillScreen(BLACK);
-    M5.Lcd.setCursor(0, 40);
-    M5.Lcd.print(cmd);
     int iMode = testProcessMode(cmd);
-    if (cmd == "100")
-    {
-        digitalWrite(ledPin, LOW);
-    }
 
     switch (iMode)
     {
-    case MODE_CURRENT:
-        //        doMeasurement();
-        //        sendMeasuredResult(rstMeasured);
+    case MODE_ADJUST_PARAM:
         doDisplayM5Stack();
         sendCommandScreen();
         break;
-        //    case MODE_DATE:
-        //        sendDataRecord(LOG_FILE, strFromDate, strToDate);
-        //        break;
+    case MODE_DO_MEASUREMENT:
+        measurementFlag = 1;
+        doDisplayM5Stack();
+        sendCommandScreen();
+        break;
         //    case MODE_RECORDS:
         //        sendDataRecord(LOG_FILE, iRecPos, iRecNo);
         //        break;
@@ -202,87 +311,14 @@ int testProcessMode(String strParam)
 
     // Analyze the process
     int iMode = 0;
-    if (strParam.indexOf("now") != -1)
+    if (strParam.toInt() > 0)
     {
-        iMode = MODE_CURRENT;
-        Serial.println("Mode: Current data.");
-        M5.Lcd.fillScreen(BLACK);
-        M5.Lcd.setCursor(0, 0);
-        M5.Lcd.print("Mode: Current data.");
+        iMode = MODE_ADJUST_PARAM;
+        Serial.println("Adjust the parameter");
     }
-    else if ((iPos = strParam.indexOf("date=")) != -1)
+    else if (strParam.indexOf("start") != -1)
     {
-        iMode = MODE_DATE;
-        strParam = strParam.substring(iPos);
-        Serial.print("Param: ");
-        Serial.println(strParam);
-        if ((iPos2 = strParam.indexOf(",")) == -1)
-        {
-            strFromDate = strParam.substring(5);
-            strToDate = strFromDate;
-        }
-        else
-        {
-            strFromDate = strParam.substring(5, iPos2);
-            strToDate = strParam.substring(iPos2 + 1);
-        }
-        Serial.print(" From:");
-        Serial.print(strFromDate);
-        Serial.print(", To:");
-        Serial.println(strToDate);
-
-        M5.Lcd.setCursor(0, 20);
-        M5.Lcd.print("From;");
-        M5.Lcd.setCursor(40, 20);
-        M5.Lcd.print(strFromDate);
-        M5.Lcd.setCursor(0, 40);
-        M5.Lcd.print("To;");
-        M5.Lcd.setCursor(40, 40);
-        M5.Lcd.print(strToDate);
-
-        if (!(strFromDate.length() == 8 && strToDate.length() == 8))
-            return -1;
-        if (!(strFromDate.charAt(2) == '/' && strFromDate.charAt(5) == '/' && strToDate.charAt(2) == '/' && strToDate.charAt(5) == '/'))
-            return -1;
-        if (!(isNumeric(strFromDate.substring(0, 2)) && isNumeric(strFromDate.substring(3, 5)) && isNumeric(strFromDate.substring(6, 8)) && isNumeric(strToDate.substring(0, 2)) && isNumeric(strToDate.substring(3, 5)) && isNumeric(strToDate.substring(6, 8))))
-            return -1;
-        strFromDate = "20" + strFromDate;
-        strToDate = "20" + strToDate;
-    }
-    else if ((iPos = strParam.indexOf("rec=")) != -1)
-    {
-        iMode = MODE_RECORDS;
-        strParam = strParam.substring(iPos);
-        Serial.print("Param: ");
-        Serial.println(strParam);
-        M5.Lcd.fillScreen(BLACK);
-        M5.Lcd.setCursor(0, 0);
-        M5.Lcd.print("Param: ");
-        M5.Lcd.setCursor(0, 20);
-        M5.Lcd.print(strParam);
-
-        if ((iPos2 = strParam.indexOf(",")) == -1)
-        {
-            if (!(isNumeric(strParam.substring(4)) && strParam.substring(4).length() > 0))
-            {
-                return -1;
-            }
-            iRecPos = (strParam.substring(4)).toInt();
-            iRecNo = 10000;
-        }
-        else
-        {
-            if (!(isNumeric(strParam.substring(iPos + 4, iPos2)) && isNumeric(strParam.substring(iPos2 + 1)) && strParam.substring(iPos + 4, iPos2).length() > 0 && strParam.substring(iPos2 + 1).length() > 0))
-            {
-                return -1;
-            }
-            iRecPos = (strParam.substring(iPos + 4, iPos2)).toInt();
-            iRecNo = (strParam.substring(iPos2 + 1)).toInt();
-        }
-        if (iRecPos < 1)
-            iRecPos = 1;
-        if (iRecNo > 10000)
-            iRecNo = 10000;
+        iMode = MODE_DO_MEASUREMENT;
     }
     else if (strParam.indexOf("mainte") != -1)
         iMode = MODE_MAINTE;
@@ -312,8 +348,8 @@ bool isNumeric(String data)
 
 void doDisplayM5Stack()
 {
-    M5.Lcd.setCursor(0, 0);
-    M5.Lcd.print("HELLO WORLD!!");
+    M5.Lcd.setCursor(0, 200);
+    M5.Lcd.print("MEASUREMENT START!!");
     digitalWrite(ledPin, HIGH);
 }
 
