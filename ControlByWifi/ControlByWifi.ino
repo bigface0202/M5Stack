@@ -12,10 +12,10 @@ int ledPin = 2;
 int measurementFlag = 0;
 
 // Process mode
-#define MODE_ADJUST_PARAM 1   // Response current values
-#define MODE_DO_MEASUREMENT 2 // Send records from SD limited the range of record position
-#define MODE_DATE 3           // Send records from SD limited the range of date or date-time
-#define MODE_MAINTE 11        // Create maintenance screen
+#define MODE_ADJUST_PARAM 1     // Response current values
+#define MODE_DO_MEASUREMENT 2   // Send records from SD limited the range of record position
+#define MODE_STOP_MEASUREMENT 3 // Send records from SD limited the range of date or date-time
+#define MODE_MAINTE 11          // Create maintenance screen
 
 #define LCD
 
@@ -139,7 +139,6 @@ void setup()
     server.on("/", HTTP_POST, procControl);
 
     pinMode(ledPin, OUTPUT);
-    digitalWrite(ledPin, HIGH);
     M5.Lcd.fillScreen(BLACK);
     Timer_init = millis();
 }
@@ -159,13 +158,13 @@ void loop()
     Milisec = Timer - 1000 * Second - 60000 * Minute;
 
     // Substitute the time for array of measurementTime
-    sprintf(measurementTime, "%02d:%02d:%03d", Minute, Second, Milisec);
+    sprintf(measurementTime, "%02d:%02d:%02d", Minute, Second, Milisec);
     // Serial.println(measurementTime);
 
     float ax, ay, az, gx, gy, gz, mx, my, mz;
     float yaw, pitch, roll;
     imu->read(&ax, &ay, &az, &gx, &gy, &gz, &mx, &my, &mz, &yaw, &pitch, &roll);
-    
+
     auto frequency = imu->getFrequency();
     displayIMU(ax, ay, az, gx, gy, gz, mx, my, mz, yaw, pitch, roll, frequency);
 
@@ -286,9 +285,11 @@ void procAnalyzeCommand()
         doDisplayM5Stack();
         sendCommandScreen();
         break;
-        //    case MODE_RECORDS:
-        //        sendDataRecord(LOG_FILE, iRecPos, iRecNo);
-        //        break;
+    case MODE_STOP_MEASUREMENT:
+        measurementFlag = 2;
+        doDisplayM5Stack();
+        sendCommandScreen();
+        break;
         //    case MODE_MAINTE:
         //        sendMainteScreen();
         //        break;
@@ -320,6 +321,10 @@ int testProcessMode(String strParam)
     {
         iMode = MODE_DO_MEASUREMENT;
     }
+    else if (strParam.indexOf("finish") != -1)
+    {
+        iMode = MODE_STOP_MEASUREMENT;
+    }
     else if (strParam.indexOf("mainte") != -1)
         iMode = MODE_MAINTE;
     else
@@ -336,20 +341,24 @@ void sendFormatError()
     server.send(200, "text/html", strBuf);
 }
 
-bool isNumeric(String data)
-{
-    for (int i = 0; i < data.length(); i++)
-    {
-        if (data.charAt(i) < '0' || data.charAt(i) > '9')
-            return false;
-    }
-    return true;
-}
-
 void doDisplayM5Stack()
 {
-    M5.Lcd.setCursor(0, 200);
-    M5.Lcd.print("MEASUREMENT START!!");
-    digitalWrite(ledPin, HIGH);
+    if (measurementFlag == 1)
+    {
+        M5.Lcd.setCursor(0, 150);
+        M5.Lcd.print("MEASUREMENT START!!");
+        digitalWrite(ledPin, HIGH);
+    }
+    else if (measurementFlag == 2)
+    {
+        M5.Lcd.setCursor(0, 170);
+        M5.Lcd.print("MEASUREMENT FINISH!!");
+        digitalWrite(ledPin, LOW);
+    }
+    else
+    {
+        M5.Lcd.setCursor(0, 190);
+        M5.Lcd.print("PARAMETER CHANGED");
+    }
 }
 
