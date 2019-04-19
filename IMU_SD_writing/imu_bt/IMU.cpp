@@ -129,7 +129,7 @@ void IMU::updateFilter()
                            mpu9250->deltat);
 
     mpu9250->delt_t = millis() - mpu9250->count;
-    if (mpu9250->delt_t > 10)
+    if (mpu9250->delt_t > 100)
     {
         mpu9250->yaw = atan2(2.0f * (*(getQ() + 1) * *(getQ() + 2) + *getQ() *
                                                                          *(getQ() + 3)),
@@ -141,8 +141,8 @@ void IMU::updateFilter()
                               *getQ() * *getQ() - *(getQ() + 1) * *(getQ() + 1) - *(getQ() + 2) * *(getQ() + 2) + *(getQ() + 3) * *(getQ() + 3));
         mpu9250->pitch *= RAD_TO_DEG;
         mpu9250->yaw *= RAD_TO_DEG;
-        // Declination of SparkFun Electronics (40ﾂｰ05'26.6"N 105ﾂｰ11'05.9"W) is
-        //   8ﾂｰ 30' E  ﾂｱ 0ﾂｰ 21' (or 8.5ﾂｰ) on 2016-07-19
+        // Declination of SparkFun Electronics (40°05'26.6"N 105°11'05.9"W) is
+        //   8° 30' E  ± 0° 21' (or 8.5°) on 2016-07-19
         // - http://www.ngdc.noaa.gov/geomag-web/#declination
         mpu9250->yaw -= 8.5;
         mpu9250->roll *= RAD_TO_DEG;
@@ -152,4 +152,3 @@ void IMU::updateFilter()
         mpu9250->sum = 0;
     }
 }
-

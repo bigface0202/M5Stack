@@ -18,4 +18,3 @@ void displayIMU(float ax, float ay, float az,
                 float frequency);
 
 #endif
-

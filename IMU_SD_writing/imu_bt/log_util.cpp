@@ -103,4 +103,3 @@ void displayIMU(float ax, float ay, float az,
     M5.Lcd.print(frequency, 2);
     M5.Lcd.print(" Hz");
 }
-
