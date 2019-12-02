@@ -78,7 +78,7 @@ void loop() {
     }
   }
 
-  for (int i = 0; i < 8; i++){
+  for (int i = 8; i >= abs(LED_angle); i--){
       leds[i] = CRGB::Black;
       FastLED.show();
   }
