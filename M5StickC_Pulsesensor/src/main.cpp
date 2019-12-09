@@ -8,10 +8,7 @@ int PulseSensorPurplePin = 26;
 int LED = 10;   
 
 // holds the incoming raw data.
-int Signal;                
-// Determine which Signal to "count as a beat", and which to ingore.
-int Threshold = 3000;            
-
+int Signal;                       
 
 // The SetUp Function:
 void setup() {
@@ -42,14 +39,6 @@ void loop() {
   normalized_signal = Signal / 3100.0;
   // Plot the signal value in LCD display.               
   M5.Lcd.fillCircle(elapsed_time, int(30 * normalized_signal), 3, RED);
-  // If the signal is above "550", then "turn-on" M5StickC's on-Board LED.
-  if(Signal > Threshold){                          
-    digitalWrite(LED,LOW);
-  } 
-  //  Else, the sigal must be below "3000", so "turn-off" this LED.
-  else {
-    digitalWrite(LED,HIGH);                
-  }
 
   elapsed_time++;
   // If the plot reach x range, the x-value and screen are renewed.
